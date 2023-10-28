@@ -2,27 +2,22 @@
 
 pragma solidity >=0.8.0;
 
-// import {IPostDispatchHook} from "@hyperlane-xyz/core/contracts/interfaces/hooks/IPostDispatchHook.sol";
+import {IPostDispatchHook} from "@hyperlane-xyz/core/contracts/interfaces/hooks/IPostDispatchHook.sol";
 import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
-// import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
-import {AbstractMessageIdAuthHook} from "@hyperlane-xyz/core/contracts/hooks/libs/AbstractMessageIdAuthHook.sol";
-import {IMailbox} from "@hyperlane-xyz/core/contracts/interfaces/IMailbox.sol";
 
-contract CCIPMessageHook is AbstractMessageIdAuthHook {
+contract CCIPMessageHook is Ownable {
     error CCIPMessageHook__NoValueSent();
     error CCIPMessageHook__NotEnoughPayment(uint256 valueSent, uint256 calculatedFees);
 
     IRouterClient public router;
     uint64 public destinationChainSelector;
+    address ism;
 
-    constructor(address _router, uint64 _destinationChainSelector, uint32 _destinationDomain, address _mailbox)
-        AbstractMessageIdAuthHook(_mailbox, _destinationDomain, bytes32(0))
-    {
+    constructor(address _router, uint64 _destinationChainSelector) {
         router = IRouterClient(_router);
         destinationChainSelector = _destinationChainSelector;
-        destinationDomain = _destinationDomain;
-        mailbox = IMailbox(_mailbox);
     }
 
     /**
@@ -34,7 +29,7 @@ contract CCIPMessageHook is AbstractMessageIdAuthHook {
         bytes calldata,
         /*metadata*/
         bytes calldata message
-    ) external payable override {
+    ) external payable {
         if (msg.value == 0) revert CCIPMessageHook__NoValueSent();
 
         Client.EVM2AnyMessage memory evm2AnyMessage = Client.EVM2AnyMessage({
@@ -69,7 +64,7 @@ contract CCIPMessageHook is AbstractMessageIdAuthHook {
         bytes calldata,
         /*metadata*/
         bytes calldata message
-    ) public view override returns (uint256) {
+    ) public view returns (uint256) {
         Client.EVM2AnyMessage memory evm2AnyMessage = Client.EVM2AnyMessage({
             receiver: abi.encode(ism),
             data: message,
@@ -81,27 +76,9 @@ contract CCIPMessageHook is AbstractMessageIdAuthHook {
         return router.getFee(destinationChainSelector, evm2AnyMessage);
     }
 
-    /**
-     * @notice Quote dispatch hook implementation.
-     * param metadata The metadata of the message being dispatched.
-     * @param message The message being dispatched.
-     * @return The quote for the dispatch.
-     */
-    function _quoteDispatch(bytes calldata metadata, bytes calldata message) internal view override returns (uint256) {
-        quoteDispatch(metadata, message);
-    }
-
-    function _sendMessageId(
-        bytes calldata,
-        /*metadata*/
-        bytes memory payload
-    ) internal override {
-        mailbox.dispatch(destinationDomain, ism, payload);
-    }
-
     ///////// Setter Functions /////////////
 
-    function setIsm(bytes32 _ism) public onlyOwner {
+    function setIsm(address _ism) public onlyOwner {
         ism = _ism;
     }
 
