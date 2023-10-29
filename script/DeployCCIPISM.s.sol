@@ -12,7 +12,7 @@ contract DeployCCIPISM is Script {
 
     function run() external returns (CCIPISM) {
         vm.startBroadcast();
-        CCIPISM ccipIsm = new CCIPISM(fujiRouterAddress, hook);
+        CCIPISM ccipIsm = new CCIPISM(fujiRouterAddress);
         vm.stopBroadcast();
         return (ccipIsm);
     }
